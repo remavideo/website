@@ -1,6 +1,8 @@
 {
   "$schema": "https://v2-9-16.turborepo.dev/schema.json",
-  "extends": ["//"],
+  "extends": [
+    "//"
+  ],
   "tasks": {
     "build": {
       "inputs": [
@@ -12,11 +14,21 @@
         "tailwind.config.cjs",
         "package.json"
       ],
-      "outputs": [".output/**"],
-      "env": ["VITE_DASHBOARD_OFF", "VITE_DASHBOARD_URL", "VERCEL"]
+      "outputs": [
+        ".output/**"
+      ],
+      "env": [
+        "VITE_DASHBOARD_OFF",
+        "VITE_DASHBOARD_URL",
+        "VERCEL"
+      ]
     },
     "check": {
-      "inputs": ["app/**", "tsconfig.json", "package.json"]
+      "inputs": [
+        "app/**",
+        "tsconfig.json",
+        "package.json"
+      ]
     }
   }
 }
