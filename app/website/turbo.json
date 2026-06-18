@@ -12,7 +12,8 @@
         "tailwind.config.cjs",
         "package.json"
       ],
-      "outputs": [".output/**"]
+      "outputs": [".output/**"],
+      "env": ["VITE_DASHBOARD_OFF", "VITE_DASHBOARD_URL", "VERCEL"]
     },
     "check": {
       "inputs": ["app/**", "tsconfig.json", "package.json"]
