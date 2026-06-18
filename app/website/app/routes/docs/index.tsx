@@ -43,6 +43,9 @@ const toc: TocSection[] = [
       { id: "input-rtmp-reader", label: "rtmpReader()" },
       { id: "input-rtmp-announcer", label: "rtmpAnnouncer()" },
       { id: "input-rtmp-multiplexer", label: "rtmpMultiplexer()" },
+      { id: "input-srt-reader", label: "srtReader()" },
+      { id: "input-srt-announcer", label: "srtAnnouncer()" },
+      { id: "input-stream-input", label: "streamInput()" },
       { id: "input-captions", label: "captions()" },
     ],
   },
@@ -51,6 +54,7 @@ const toc: TocSection[] = [
     label: "Output Nodes",
     children: [
       { id: "output-rtmp", label: "rtmp()" },
+      { id: "output-srt", label: "srt()" },
       { id: "output-file", label: "file()" },
       { id: "output-hls", label: "hls()" },
     ],
@@ -61,6 +65,7 @@ const toc: TocSection[] = [
     children: [
       { id: "processor-cea608", label: "cea608()" },
       { id: "processor-ffprobe", label: "ffprobeMonitor()" },
+      { id: "processor-gemini-translate", label: "geminiTranslate()" },
     ],
   },
   {
@@ -639,14 +644,196 @@ await input.enable();       // start streaming`}
 });`}
       />
 
+      <H3 id="input-srt-reader">
+        <FnName>wf.input.srtReader()</FnName> — SrtReaderNode
+      </H3>
+      <P>
+        Waits for a single SRT publisher to connect at a given <IC>app</IC> /{" "}
+        <IC>sourceName</IC>, ingested by MediaMTX and pulled back into the
+        pipeline over RTSP internally. Fires <IC>onPublish</IC> when the
+        stream goes live.
+      </P>
+      <PropTable
+        props={[
+          {
+            name: "app",
+            type: "string",
+            required: true,
+            description: 'SRT app name, e.g. "live".',
+          },
+          {
+            name: "sourceName",
+            type: "string",
+            required: true,
+            description: "Stream key (source name).",
+          },
+          {
+            name: "onPublish",
+            type: "(info) => void",
+            description: "Called when an SRT publisher connects.",
+          },
+          {
+            name: "onStreamStart",
+            type: "(wallClockMs: number) => void",
+            description:
+              "Called when the first MPEG-TS data packet arrives at the server.",
+          },
+        ]}
+      />
+      <CodeBlock
+        code={`const input = await wf.input.srtReader({
+  app: "live",
+  sourceName: "mystream",
+  onPublish: ({ app, internalUrl }) => {
+    console.log(\`Publisher connected on \${app}, relay URL: \${internalUrl}\`);
+  },
+});`}
+      />
+      <P>
+        Push a test stream with FFmpeg:{" "}
+        <IC>
+          ffmpeg -re -i input.mp4 -f mpegts
+          "srt://localhost:9000?streamid=publish:live/mystream"
+        </IC>
+        .
+      </P>
+
+      <H3 id="input-srt-announcer">
+        <FnName>wf.input.srtAnnouncer()</FnName> — SrtAnnouncerNode
+      </H3>
+      <P>
+        Watches for any SRT publisher connection on an <IC>app</IC> without
+        creating a stream node. Use this to react to publish events and spin
+        up separate workflows or nodes dynamically — the same role{" "}
+        <IC>rtmpAnnouncer()</IC> plays for RTMP.
+      </P>
+      <PropTable
+        props={[
+          {
+            name: "app",
+            type: "string",
+            default: '"live"',
+            description: "SRT app name to watch.",
+          },
+          {
+            name: "passphrase",
+            type: "string",
+            description:
+              "Passphrase to include in connection events, mirroring the MediaMTX path config.",
+          },
+          {
+            name: "latencyMs",
+            type: "number",
+            description: "SRT latency in milliseconds to include in connection events.",
+          },
+          {
+            name: "onConnect",
+            type: "(info) => void",
+            required: true,
+            description: "Called when any publisher connects.",
+          },
+          {
+            name: "onDisconnect",
+            type: "(info) => void",
+            description: "Called when a publisher disconnects.",
+          },
+        ]}
+      />
+      <CodeBlock
+        code={`const announcer = await wf.input.srtAnnouncer({
+  app: "live",
+  latencyMs: 200,
+  onConnect({ app, sourceName }) {
+    console.log(\`\${sourceName} started publishing on \${app}\`);
+    // create a separate workflow / pipeline here
+  },
+  onDisconnect({ sourceName }) {
+    console.log(\`\${sourceName} disconnected\`);
+  },
+});`}
+      />
+
+      <H3 id="input-stream-input">
+        <FnName>wf.input.streamInput()</FnName> — NodeStreamInputNode
+      </H3>
+      <P>
+        Pushes an in-process audio stream — any Node.js <IC>Readable</IC> or{" "}
+        <IC>AsyncIterable&lt;Buffer&gt;</IC> — directly into the pipeline by
+        calling <IC>.stream(source)</IC> on the returned node. Useful for TTS
+        output, microphone capture, or any audio you generate in your own
+        process rather than read from a file or network source.
+      </P>
+      <PropTable
+        props={[
+          {
+            name: "format",
+            type: "string",
+            required: true,
+            description:
+              'FFmpeg format identifier for the incoming audio data. Raw PCM: "s16le", "f32le". Encoded: "wav", "mp3", "aac", "flac".',
+          },
+          {
+            name: "sampleRate",
+            type: "number",
+            description: "Sample rate in Hz. Required when format is a raw PCM format.",
+          },
+          {
+            name: "channels",
+            type: "number",
+            description: "Number of audio channels. Required when format is a raw PCM format.",
+          },
+          {
+            name: "audioCodec",
+            type: "string",
+            default: '"aac"',
+            description:
+              'FFmpeg codec for the MPEG-TS output. Use "copy" only when the input is already MPEG-TS-compatible AAC.',
+          },
+          {
+            name: "label",
+            type: "string",
+            description: "Human-readable label shown in the dashboard.",
+          },
+          {
+            name: "onReady",
+            type: "() => void",
+            description: "Called when the node transitions to the ready state.",
+          },
+          {
+            name: "onStreamStart",
+            type: "(wallClockMs: number) => void",
+            description:
+              "Called once when the first audio packet is written to the server.",
+          },
+        ]}
+      />
+      <CodeBlock
+        code={`const audioInput = await wf.input.streamInput({
+  format: "s16le",
+  sampleRate: 24_000,
+  channels: 1,
+  audioCodec: "aac",
+});
+
+// Push any AsyncIterable<Buffer> — a Readable, a PassThrough, a TTS SDK stream...
+await audioInput.stream(ttsStream);
+
+// Mix it into an output alongside a file's video track
+await output.subscribe([
+  { source: fileInput, sourceSelector: "VIDEO" },
+  { source: audioInput, sourceSelector: "AUDIO" },
+]);`}
+      />
+
       <H3 id="input-captions">
         <FnName>wf.input.captions()</FnName> — CaptionSourceNode
       </H3>
       <P>
         A format-agnostic caption schedule. Call <IC>captions.send()</IC> to
-        queue text for injection. Wire this node to a <IC>cea608()</IC> encoder
-        or HLS output (for WebVTT). Does not produce video — it is a pure
-        caption source.
+        queue text for injection, or load an entire SRT/WebVTT file at once
+        with <IC>sendFile()</IC> / <IC>sendFileByPath()</IC>. Wire this node
+        to a <IC>cea608()</IC> encoder or HLS output (for WebVTT). Does not
+        produce video — it is a pure caption source.
       </P>
       <PropTable
         props={[
@@ -675,6 +862,12 @@ await input.enable();       // start streaming`}
             default: "true",
             description: "Pre-select this track when the player loads.",
           },
+          {
+            name: "maxLineLength",
+            type: "number",
+            description:
+              "Maximum characters per caption line. Longer captions are split into sequential chunks on the server, each chunk's duration proportional to its share of the original text.",
+          },
         ]}
       />
       <CodeBlock
@@ -687,7 +880,11 @@ await captions.send("Live caption text", { duration: 4000 });
 await captions.send("Timed caption", { duration: 8000 });
 
 // Schedule at a stream-relative offset (ms from first video frame)
-await captions.send("Scheduled text", { startAt: 5000, duration: 3000 });`}
+await captions.send("Scheduled text", { startAt: 5000, duration: 3000 });
+
+// Load an entire SRT/WebVTT file's entries at once
+const { count } = await captions.sendFileByPath("/data/captions.en.srt");
+console.log(\`scheduled \${count} entries\`);`}
       />
 
       {/* ── Output Nodes ────────────────────────────────────────────────── */}
@@ -731,6 +928,47 @@ await captions.send("Scheduled text", { startAt: 5000, duration: 3000 });`}
         code={`const output = await wf.output.rtmp({
   url: "rtmp://live.twitch.tv/app/YOUR_STREAM_KEY",
   onError: (err) => console.error("RTMP output error:", err.message),
+});
+await output.subscribe([{ source: encoder, sourceSelector: selectAll }]);`}
+      />
+
+      <H3 id="output-srt">
+        <FnName>wf.output.srt()</FnName> — SrtOutputNode
+      </H3>
+      <P>
+        Pushes the subscribed streams to an SRT destination URL as MPEG-TS
+        using FFmpeg. Transport parameters (latency, passphrase, stream ID,
+        caller/listener mode) are passed as query params on the URL itself.
+      </P>
+      <P>
+        Like <IC>file()</IC>, it accepts multiple subscriptions at once: each
+        subscription's tracks are mapped into the output independently (
+        <IC>VIDEO</IC> maps its video track, <IC>AUDIO</IC> maps its audio
+        track, and <IC>ALL</IC> maps both) — so you can combine a video
+        source with one or more separate audio sources in a single SRT
+        stream.
+      </P>
+      <PropTable
+        props={[
+          {
+            name: "url",
+            type: "string",
+            required: true,
+            description:
+              'Full SRT URL, e.g. "srt://host:port?streamid=publish:live/key&mode=caller&latency=200".',
+          },
+          {
+            name: "onError",
+            type: "(err: Error) => void",
+            description:
+              "Called when the FFmpeg output process exits with an error after the node is created.",
+          },
+        ]}
+      />
+      <CodeBlock
+        code={`const output = await wf.output.srt({
+  url: "srt://relay.example.com:9000?streamid=publish:live/key&mode=caller&latency=200",
+  onError: (err) => console.error("SRT output error:", err.message),
 });
 await output.subscribe([{ source: encoder, sourceSelector: selectAll }]);`}
       />
@@ -962,6 +1200,53 @@ const sub = probe.observe("stream-info", (event) => {
 
 // Later: stop receiving events
 sub.unsubscribe();`}
+      />
+
+      <H3 id="processor-gemini-translate">
+        <FnName>wf.processor.geminiTranslate()</FnName> — GeminiTranslateNode
+      </H3>
+      <P>
+        Translates an audio stream in real time via the Gemini Live
+        Translate API. Subscribe it to an audio/media source; the server
+        decodes the subscribed audio to PCM, streams it to Gemini, and
+        outputs the translated speech as an audio-only MPEG-TS stream — wire
+        it into an HLS or RTMP output as an alternate audio track.
+      </P>
+      <PropTable
+        props={[
+          {
+            name: "apiKey",
+            type: "string",
+            required: true,
+            description: "Gemini API key.",
+          },
+          {
+            name: "targetLanguageCode",
+            type: "string",
+            required: true,
+            description:
+              'BCP-47 target language code for the translation output, e.g. "it", "es", "fr".',
+          },
+          {
+            name: "label",
+            type: "string",
+            description: "Human-readable label shown in the dashboard.",
+          },
+        ]}
+      />
+      <CodeBlock
+        code={`const geminiTranslate = await wf.processor.geminiTranslate({
+  apiKey: process.env.GEMINI_API_KEY!,
+  targetLanguageCode: "it",
+  label: "Gemini (it)",
+});
+await geminiTranslate.subscribe([{ source: fileInput, sourceSelector: "AUDIO" }]);
+
+// Wire the translated track in as an alternate HLS audio rendition
+await hlsOut.subscribe([
+  { source: fileInput, sourceSelector: selectAll, audio: { language: "en", label: "Original", defaultTrack: true } },
+  { source: geminiTranslate, sourceSelector: "AUDIO", audio: { language: "it", label: "Italian" } },
+]);`}
       />
 
       {/* ── Examples ────────────────────────────────────────────────────── */}
