@@ -1,0 +1,21 @@
+{
+  "$schema": "https://v2-9-16.turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "app/**",
+        "public/**",
+        "vite.config.ts",
+        "tsconfig.json",
+        "postcss.config.cjs",
+        "tailwind.config.cjs",
+        "package.json"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "check": {
+      "inputs": ["app/**", "tsconfig.json", "package.json"]
+    }
+  }
+}

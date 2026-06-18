@@ -1,0 +1,177 @@
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource/jetbrains-mono";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+
+@layer base {
+  :root {
+    --font-sans:
+      "Bricolage Grotesque Variable", "Bricolage Grotesque", system-ui,
+      sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    /* SMPTE bar colors, used for the signal-strip motif */
+    --smpte-1: #c0c0c0;
+    --smpte-2: #c0c000;
+    --smpte-3: #00c0c0;
+    --smpte-4: #00c000;
+    --smpte-5: #c000c0;
+    --smpte-6: #c00000;
+    --smpte-7: #0000c0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background: rgba(242, 91, 30, 0.25);
+  }
+
+  /* Custom scrollbar — follows the theme */
+  ::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(124, 112, 92, 0.35);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(124, 112, 92, 0.55);
+  }
+}
+
+@layer utilities {
+  /* ── Signal strip: a thin SMPTE color-bar ribbon ─────────────────────── */
+  .smpte-strip {
+    background: linear-gradient(
+      to right,
+      var(--smpte-1) 0 14.28%,
+      var(--smpte-2) 14.28% 28.57%,
+      var(--smpte-3) 28.57% 42.85%,
+      var(--smpte-4) 42.85% 57.14%,
+      var(--smpte-5) 57.14% 71.42%,
+      var(--smpte-6) 71.42% 85.71%,
+      var(--smpte-7) 85.71% 100%
+    );
+  }
+
+  /* ── Caption bar: the universal TV caption look, identical in both themes */
+  .caption-bar {
+    background: #0c0b09;
+    color: #fdfcf9;
+    font-family: var(--font-mono);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  /* ── Paper grain — barely-there noise so flat surfaces feel printed ──── */
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 0 0.33 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ── CRT scanlines for the monitor mock ──────────────────────────────── */
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0 2px,
+      rgba(255, 255, 255, 0.022) 2px 3px
+    );
+  }
+
+  /* ── Halftone dot field (light & dark aware via currentColor) ────────── */
+  .dot-field {
+    background-image: radial-gradient(currentColor 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* ── Tally light pulse ───────────────────────────────────────────────── */
+  @keyframes tally-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.55);
+    }
+    50% {
+      opacity: 0.75;
+      box-shadow: 0 0 0 5px rgba(248, 81, 73, 0);
+    }
+  }
+  .tally-pulse {
+    animation: tally-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* ── Staggered page-load reveal ──────────────────────────────────────── */
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .rise-in {
+    animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .rise-in-1 {
+    animation-delay: 0.05s;
+  }
+  .rise-in-2 {
+    animation-delay: 0.15s;
+  }
+  .rise-in-3 {
+    animation-delay: 0.25s;
+  }
+  .rise-in-4 {
+    animation-delay: 0.38s;
+  }
+  .rise-in-5 {
+    animation-delay: 0.5s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise-in,
+    .tally-pulse {
+      animation: none;
+    }
+  }
+
+  /* ── Animated signal flow along schematic pipeline paths ─────────────── */
+  @keyframes signal-dash {
+    to {
+      stroke-dashoffset: -16;
+    }
+  }
+  .signal-dash {
+    animation: signal-dash 0.9s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .signal-dash {
+      animation: none;
+    }
+  }
+}

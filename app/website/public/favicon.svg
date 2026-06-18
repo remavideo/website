@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="34" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e04e1a"/>
+      <stop offset="100%" stop-color="#ffb01f"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="#100e0b"/>
+  <g transform="translate(2.4 5.8) scale(0.85)">
+    <!-- Fan-in connectors -->
+    <path d="M9.3 8.3 L11.1 9.3" stroke="url(#g)" stroke-opacity="0.75" stroke-width="2" stroke-linecap="round"/>
+    <path d="M9.3 15.7 L11.1 14.7" stroke="url(#g)" stroke-opacity="0.75" stroke-width="2" stroke-linecap="round"/>
+    <!-- Output connector -->
+    <path d="M22.5 12 L25 12" stroke="url(#g)" stroke-opacity="0.9" stroke-width="2" stroke-linecap="round"/>
+    <!-- Input nodes -->
+    <circle cx="5" cy="6" r="3" fill="url(#g)" fill-opacity="0.85"/>
+    <circle cx="5" cy="18" r="3" fill="url(#g)" fill-opacity="0.85"/>
+    <!-- Central rema node -->
+    <circle cx="16" cy="12" r="5.2" fill="url(#g)"/>
+    <!-- Play-triangle output -->
+    <path d="M27 8.2 L32.4 11.6 a0.5 0.5 0 0 1 0 0.8 L27 15.8 a0.5 0.5 0 0 1 -0.75 -0.4 V8.6 a0.5 0.5 0 0 1 0.75 -0.4 Z" fill="url(#g)"/>
+  </g>
+</svg>
