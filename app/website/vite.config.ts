@@ -13,11 +13,15 @@ export default defineConfig({
         generatedRouteTree: "./routeTree.gen.ts",
       },
     }),
-    nitro({
-      output: {
-        dir: "dist",
-      },
-    }),
+    nitro(
+      process.env.VERCEL
+        ? { preset: "vercel" }
+        : {
+            output: {
+              dir: "dist",
+            },
+          },
+    ),
     react(),
     tsconfigPaths(),
   ],
