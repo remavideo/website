@@ -397,13 +397,13 @@ await output.subscribe(
             name: "all_stream_active",
             type: '{ type: "all_stream_active" }',
             description:
-              "Wait until every subscribed source is in the STREAM_ACTIVE state. Useful when a node requires all inputs to be live before it makes sense to start (e.g. a fan-in encoder that needs both video and captions).",
+              "Wait until every subscribed source is in the ACTIVE state. Useful when a node requires all inputs to be live before it makes sense to start (e.g. a fan-in encoder that needs both video and captions).",
           },
           {
             name: "min_active_by_selector",
             type: '{ type: "min_active_by_selector", selector: StreamSelector, count: number }',
             description:
-              "Wait until at least count sources matching selector are STREAM_ACTIVE. Useful when you subscribe many optional sources but only need a minimum number live before starting.",
+              "Wait until at least count sources matching selector are ACTIVE. Useful when you subscribe many optional sources but only need a minimum number live before starting.",
           },
         ]}
       />
@@ -482,6 +482,12 @@ await mixer.subscribe(
             description:
               "Called when the first data packet arrives. The wallClockMs is the server's Date.now() at that moment — use it to convert absolute caption timestamps to stream-relative offsets.",
           },
+          {
+            name: "onEnded",
+            type: "() => void",
+            description:
+              "Called once the file finishes playing (reaches EOF). Never fires when loop is true.",
+          },
         ]}
       />
       <CodeBlock
@@ -531,6 +537,12 @@ await input.enable();       // start streaming`}
             type: "(wallClockMs: number) => void",
             description:
               "Called when the first MPEG-TS data packet arrives at the server.",
+          },
+          {
+            name: "onStreamEnded",
+            type: "() => void",
+            description:
+              "Called when the publisher disconnects (the underlying FFmpeg pull exits).",
           },
         ]}
       />
@@ -650,8 +662,8 @@ await input.enable();       // start streaming`}
       <P>
         Waits for a single SRT publisher to connect at a given <IC>app</IC> /{" "}
         <IC>sourceName</IC>, ingested by MediaMTX and pulled back into the
-        pipeline over RTSP internally. Fires <IC>onPublish</IC> when the
-        stream goes live.
+        pipeline over RTSP internally. Fires <IC>onPublish</IC> when the stream
+        goes live.
       </P>
       <PropTable
         props={[
@@ -678,6 +690,12 @@ await input.enable();       // start streaming`}
             description:
               "Called when the first MPEG-TS data packet arrives at the server.",
           },
+          {
+            name: "onStreamEnded",
+            type: "() => void",
+            description:
+              "Called when the publisher disconnects (the underlying FFmpeg pull exits).",
+          },
         ]}
       />
       <CodeBlock
@@ -703,8 +721,8 @@ await input.enable();       // start streaming`}
       </H3>
       <P>
         Watches for any SRT publisher connection on an <IC>app</IC> without
-        creating a stream node. Use this to react to publish events and spin
-        up separate workflows or nodes dynamically — the same role{" "}
+        creating a stream node. Use this to react to publish events and spin up
+        separate workflows or nodes dynamically — the same role{" "}
         <IC>rtmpAnnouncer()</IC> plays for RTMP.
       </P>
       <PropTable
@@ -724,7 +742,8 @@ await input.enable();       // start streaming`}
           {
             name: "latencyMs",
             type: "number",
-            description: "SRT latency in milliseconds to include in connection events.",
+            description:
+              "SRT latency in milliseconds to include in connection events.",
           },
           {
             name: "onConnect",
@@ -775,12 +794,14 @@ await input.enable();       // start streaming`}
           {
             name: "sampleRate",
             type: "number",
-            description: "Sample rate in Hz. Required when format is a raw PCM format.",
+            description:
+              "Sample rate in Hz. Required when format is a raw PCM format.",
           },
           {
             name: "channels",
             type: "number",
-            description: "Number of audio channels. Required when format is a raw PCM format.",
+            description:
+              "Number of audio channels. Required when format is a raw PCM format.",
           },
           {
             name: "audioCodec",
@@ -804,6 +825,12 @@ await input.enable();       // start streaming`}
             type: "(wallClockMs: number) => void",
             description:
               "Called once when the first audio packet is written to the server.",
+          },
+          {
+            name: "onEnded",
+            type: "() => void",
+            description:
+              "Called once the underlying FFmpeg process exits cleanly after end().",
           },
         ]}
       />
@@ -830,10 +857,10 @@ await output.subscribe([
       </H3>
       <P>
         A format-agnostic caption schedule. Call <IC>captions.send()</IC> to
-        queue text for injection, or load an entire SRT/WebVTT file at once
-        with <IC>sendFile()</IC> / <IC>sendFileByPath()</IC>. Wire this node
-        to a <IC>cea608()</IC> encoder or HLS output (for WebVTT). Does not
-        produce video — it is a pure caption source.
+        queue text for injection, or load an entire SRT/WebVTT file at once with{" "}
+        <IC>sendFile()</IC> / <IC>sendFileByPath()</IC>. Wire this node to a{" "}
+        <IC>cea608()</IC> encoder or HLS output (for WebVTT). Does not produce
+        video — it is a pure caption source.
       </P>
       <PropTable
         props={[
@@ -936,17 +963,16 @@ await output.subscribe([{ source: encoder, sourceSelector: selectAll }]);`}
         <FnName>wf.output.srt()</FnName> — SrtOutputNode
       </H3>
       <P>
-        Pushes the subscribed streams to an SRT destination URL as MPEG-TS
-        using FFmpeg. Transport parameters (latency, passphrase, stream ID,
+        Pushes the subscribed streams to an SRT destination URL as MPEG-TS using
+        FFmpeg. Transport parameters (latency, passphrase, stream ID,
         caller/listener mode) are passed as query params on the URL itself.
       </P>
       <P>
         Like <IC>file()</IC>, it accepts multiple subscriptions at once: each
         subscription's tracks are mapped into the output independently (
         <IC>VIDEO</IC> maps its video track, <IC>AUDIO</IC> maps its audio
-        track, and <IC>ALL</IC> maps both) — so you can combine a video
-        source with one or more separate audio sources in a single SRT
-        stream.
+        track, and <IC>ALL</IC> maps both) — so you can combine a video source
+        with one or more separate audio sources in a single SRT stream.
       </P>
       <PropTable
         props={[
@@ -1206,11 +1232,11 @@ sub.unsubscribe();`}
         <FnName>wf.processor.geminiTranslate()</FnName> — GeminiTranslateNode
       </H3>
       <P>
-        Translates an audio stream in real time via the Gemini Live
-        Translate API. Subscribe it to an audio/media source; the server
-        decodes the subscribed audio to PCM, streams it to Gemini, and
-        outputs the translated speech as an audio-only MPEG-TS stream — wire
-        it into an HLS or RTMP output as an alternate audio track.
+        Translates an audio stream in real time via the Gemini Live Translate
+        API. Subscribe it to an audio/media source; the server decodes the
+        subscribed audio to PCM, streams it to Gemini, and outputs the
+        translated speech as an audio-only MPEG-TS stream — wire it into an HLS
+        or RTMP output as an alternate audio track.
       </P>
       <PropTable
         props={[

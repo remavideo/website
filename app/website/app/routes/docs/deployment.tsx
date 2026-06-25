@@ -26,6 +26,14 @@ const toc: TocSection[] = [
     ],
   },
   {
+    id: "capacity",
+    label: "Capacity planning",
+    children: [
+      { id: "capacity-model", label: "Resource model" },
+      { id: "capacity-example", label: "Worked example" },
+    ],
+  },
+  {
     id: "aws",
     label: "AWS",
     children: [
@@ -161,6 +169,110 @@ docker pull ghcr.io/remavideo/rema-server:nightly`}
         CDN or object storage rather than from the container directly.
       </Callout>
 
+      {/* ── Capacity planning ───────────────────────────────────────────── */}
+      <H2 id="capacity">Capacity planning</H2>
+
+      <P>
+        The instance sizing tables below give a per-cloud rule of thumb, but the
+        actual number of streams a box can hold follows directly from two
+        measured numbers: a fixed baseline for the server process, and a
+        marginal cost per active workflow.
+      </P>
+
+      <H3 id="capacity-model">Resource model</H3>
+      <P>
+        With zero active workflows, an idle rema server uses about{" "}
+        <IC>30 MB</IC> of RAM and effectively <IC>0%</IC> CPU. Each active
+        workflow then adds a marginal cost on top of that baseline. This was
+        measured per-stream, at the container level (e.g. via{" "}
+        <IC>docker stats</IC>), for rema's two pipeline paths: plain passthrough
+        (no caption node in the graph — a single FFmpeg <IC>-c copy</IC>{" "}
+        process) and the caption path (an H.264 SEI-injection pipeline that
+        still avoids a real transcode):
+      </P>
+      <DataTable
+        headers={["Pipeline path", "RAM per stream", "CPU per stream"]}
+        rows={[
+          ["Simple (passthrough, -c copy)", "~170 MB", "~5–10% of one core"],
+          ["Caption path (SEI injection)", "~180 MB", "~4.5% of one core"],
+        ]}
+      />
+      <P>
+        The two paths cost about the same. The caption pipeline doesn't
+        re-encode anything — it parses and injects SEI NAL units into the
+        existing bitstream — so it doesn't carry the extra cost you'd expect
+        from a real transcode. For sizing purposes, use a single conservative
+        figure that covers both:{" "}
+        <strong>
+          ~180 MB RAM and ~10% of one CPU core per active workflow
+        </strong>
+        .
+      </P>
+      <Callout variant="warning">
+        This model only covers <strong>conversion-free</strong> pipelines —
+        plain passthrough and caption injection. A processor node that actually
+        transcodes (resizing, bitrate/codec conversion) spins up real
+        encode/decode work and costs substantially more CPU per stream. Size
+        those workflows by load-testing your specific encode settings, not with
+        the numbers on this page.
+      </Callout>
+      <P>Putting the baseline and marginal cost together:</P>
+      <CodeBlock
+        language="text"
+        code={`RAM needed  (MB)    ≈ 30 + streams × 180
+CPU needed (cores)  ≈ streams × 0.10`}
+      />
+      <P>
+        That accounts for the container only. If you're running directly on a VM
+        (rather than a fully managed container platform), also reserve some
+        headroom for the host OS and Docker engine outside the container —
+        roughly <IC>250–300 MB</IC> is a reasonable rule of thumb for a minimal
+        Linux image, though this isn't something we've measured as precisely as
+        the figures above.
+      </P>
+
+      <H3 id="capacity-example">Worked example</H3>
+      <P>
+        Take the smallest tier from the tables below — a 2 vCPU / 4 GB box.
+        Plugging in the formula gives a <em>raw</em> ceiling of ~20 streams
+        (CPU-bound: 2 cores ÷ 10% per stream). Whether you actually run at that
+        ceiling depends on how much headroom you want to leave for OS jitter,
+        reconnect bursts, and measurement variance:
+      </P>
+      <DataTable
+        headers={["Headroom", "Max streams", "What it buys you"]}
+        mono={[]}
+        rows={[
+          [
+            "0% (raw math)",
+            "20",
+            "Every core allocated to streams — no margin for spikes.",
+          ],
+          [
+            "25%",
+            "15",
+            "A quarter of capacity held back — a reasonable default for most production setups.",
+          ],
+          [
+            "50%",
+            "10",
+            "Half held back — conservative; comfortable room for traffic spikes or co-located workloads.",
+          ],
+        ]}
+      />
+      <P>
+        Larger instances scale linearly with vCPU count using the same formula —
+        the per-cloud tables below list the raw (0% headroom) ceiling alongside
+        a more conservative range so you can pick the number that matches your
+        own risk tolerance.
+      </P>
+      <Callout variant="info">
+        This is a CPU/RAM model only. At high concurrency, other limits — open
+        file descriptors, network throughput, or a single RTMP listener's
+        connection-handling overhead — may bind before CPU or RAM do. Load-test
+        before committing to a number above a few dozen streams on one box.
+      </Callout>
+
       {/* ── AWS ─────────────────────────────────────────────────────────── */}
       <H2 id="aws">AWS</H2>
 
@@ -174,28 +286,45 @@ docker pull ghcr.io/remavideo/rema-server:nightly`}
 
       <H3 id="aws-instance">Instance sizing</H3>
       <P>
-        Rema is CPU-bound: each active FFmpeg pipeline consumes one or more
-        threads. Choose compute-optimised instances (<IC>c7i</IC> or{" "}
-        <IC>c6i</IC> family). General-purpose (<IC>m7i</IC>) instances work fine
-        for moderate loads.
+        Rema is CPU-bound: each active pipeline (passthrough or captions) costs
+        about <IC>10%</IC> of one core, so streams-per-box scales linearly with
+        vCPU count — see{" "}
+        <a href="#capacity" className="text-primary underline">
+          Capacity planning
+        </a>{" "}
+        for the formula behind the numbers below. Choose compute-optimised
+        instances (<IC>c7i</IC> or <IC>c6i</IC> family). General-purpose (
+        <IC>m7i</IC>) instances work fine for moderate loads. A processor node
+        that actually transcodes will need more headroom than these numbers
+        assume.
       </P>
       <DataTable
         headers={["Instance", "vCPU", "RAM", "Typical use"]}
         rows={[
-          ["c6i.large", "2", "4 GB", "Development / single low-bitrate stream"],
+          [
+            "c6i.large",
+            "2",
+            "4 GB",
+            "Development: 10–20 passthrough/caption streams",
+          ],
           [
             "c6i.xlarge",
             "4",
             "8 GB",
-            "Production: 2–4 simultaneous streams with captions",
+            "Production: 20–40 passthrough/caption streams",
           ],
           [
             "c6i.2xlarge",
             "8",
             "16 GB",
-            "High-throughput: 8+ streams or caption-heavy workloads",
+            "High-throughput: 40–80 passthrough/caption streams",
           ],
-          ["c6i.4xlarge", "16", "32 GB", "Large-scale: 20+ concurrent streams"],
+          [
+            "c6i.4xlarge",
+            "16",
+            "32 GB",
+            "Large-scale: 80–160 passthrough/caption streams",
+          ],
         ]}
       />
       <Callout variant="tip">
@@ -322,23 +451,32 @@ aws elbv2 register-targets \\
       <P>
         Fly machines are sized by CPU class and count. Choose{" "}
         <IC>performance</IC>-class CPUs for encoding workloads — they are
-        dedicated cores, unlike shared <IC>shared</IC>-class vCPUs.
+        dedicated cores, unlike shared <IC>shared</IC>-class vCPUs. See{" "}
+        <a href="#capacity" className="text-primary underline">
+          Capacity planning
+        </a>{" "}
+        for how the stream counts below were derived.
       </P>
       <DataTable
         headers={["Size", "vCPU", "RAM", "Typical use"]}
         rows={[
-          ["performance-2x", "2", "4 GB", "Development / single stream"],
+          [
+            "performance-2x",
+            "2",
+            "4 GB",
+            "Development: 10–20 passthrough/caption streams",
+          ],
           [
             "performance-4x",
             "4",
             "8 GB",
-            "Production: 2–4 simultaneous streams",
+            "Production: 20–40 passthrough/caption streams",
           ],
           [
             "performance-8x",
             "8",
             "16 GB",
-            "High-throughput: 8+ streams or caption pipelines",
+            "High-throughput: 40–80 passthrough/caption streams",
           ],
         ]}
       />
@@ -458,7 +596,12 @@ fly logs --app my-rema-server`}
       <P>
         Choose compute-optimised (<IC>c2</IC> or <IC>c3</IC>) machine types. The{" "}
         <IC>n2-standard</IC> family is a good general-purpose alternative if
-        compute-optimised availability is limited in your region.
+        compute-optimised availability is limited in your region. See{" "}
+        <a href="#capacity" className="text-primary underline">
+          Capacity planning
+        </a>{" "}
+        for how the stream counts below were derived — they scale with vCPU
+        count, not RAM, since these workloads are CPU-bound first.
       </P>
       <DataTable
         headers={["Machine type", "vCPU", "RAM", "Typical use"]}
@@ -467,11 +610,26 @@ fly logs --app my-rema-server`}
             "c2-standard-4",
             "4",
             "16 GB",
-            "Production: 2–4 simultaneous streams",
+            "Production: 20–40 passthrough/caption streams",
           ],
-          ["c2-standard-8", "8", "32 GB", "High-throughput: 8+ streams"],
-          ["n2-standard-2", "2", "8 GB", "Development / light workloads"],
-          ["n2-standard-4", "4", "16 GB", "Production general-purpose"],
+          [
+            "c2-standard-8",
+            "8",
+            "32 GB",
+            "High-throughput: 40–80 passthrough/caption streams",
+          ],
+          [
+            "n2-standard-2",
+            "2",
+            "8 GB",
+            "Development: 10–20 passthrough/caption streams",
+          ],
+          [
+            "n2-standard-4",
+            "4",
+            "16 GB",
+            "Production: 20–40 passthrough/caption streams",
+          ],
         ]}
       />
       <Callout variant="tip">

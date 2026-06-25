@@ -15,7 +15,7 @@
         "package.json"
       ],
       "outputs": [
-        ".output/**"
+        "dist/**"
       ],
       "dependsOn": [
         "@remavideo/ui#build"
